@@ -1,7 +1,7 @@
 from datetime import datetime
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from itsdangerous import URLSafeTimedSerializer as Serializer
 from markdown import markdown
 import bleach
 from flask import current_app, request, url_for
@@ -137,15 +137,16 @@ class User(UserMixin, db.Model):
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    # ---------------- Token Methods ----------------
     def generate_confirmation_token(self, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'confirm': self.id}).decode('utf-8')
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'confirm': self.id})
 
-    def confirm(self, token):
+    def confirm(self, token, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token.encode('utf-8'))
-        except:
+            data = s.loads(token, max_age=expiration)
+        except Exception:
             return False
         if data.get('confirm') != self.id:
             return False
@@ -154,15 +155,15 @@ class User(UserMixin, db.Model):
         return True
 
     def generate_reset_token(self, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'reset': self.id}).decode('utf-8')
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'reset': self.id})
 
     @staticmethod
-    def reset_password(token, new_password):
+    def reset_password(token, new_password, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token.encode('utf-8'))
-        except:
+            data = s.loads(token, max_age=expiration)
+        except Exception:
             return False
         user = User.query.get(data.get('reset'))
         if user is None:
@@ -172,15 +173,14 @@ class User(UserMixin, db.Model):
         return True
 
     def generate_email_change_token(self, new_email, expiration=3600):
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps(
-            {'change_email': self.id, 'new_email': new_email}).decode('utf-8')
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'change_email': self.id, 'new_email': new_email})
 
-    def change_email(self, token):
+    def change_email(self, token, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token.encode('utf-8'))
-        except:
+            data = s.loads(token, max_age=expiration)
+        except Exception:
             return False
         if data.get('change_email') != self.id:
             return False
@@ -193,6 +193,7 @@ class User(UserMixin, db.Model):
         self.avatar_hash = self.gravatar_hash()
         db.session.add(self)
         return True
+    # ---------------- End Token Methods ----------------
 
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)
@@ -254,9 +255,8 @@ class User(UserMixin, db.Model):
         return json_user
 
     def generate_auth_token(self, expiration):
-        s = Serializer(current_app.config['SECRET_KEY'],
-                       expires_in=expiration)
-        return s.dumps({'id': self.id}).decode('utf-8')
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'id': self.id})
 
     @staticmethod
     def verify_auth_token(token):
@@ -277,6 +277,7 @@ class AnonymousUser(AnonymousUserMixin):
 
     def is_administrator(self):
         return False
+
 
 login_manager.anonymous_user = AnonymousUser
 
