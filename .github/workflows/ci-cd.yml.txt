@@ -1,0 +1,56 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  release:
+    types: [published]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest
+
+      - name: Build
+        if: success() # Only if tests passed
+        run: |
+          echo "Build step..."
+
+  deploy-staging:
+    needs: build-test
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Staging
+        env:
+          DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+        run: |
+          echo "Deploy to staging using $DEPLOY_KEY"
+
+  deploy-production:
+    needs: build-test
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production
+        env:
+          PROD_KEY: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+        run: |
+          echo "Deploy to production using $PROD_KEY"
