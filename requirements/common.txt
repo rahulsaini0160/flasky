@@ -11,7 +11,7 @@ Flask-Mail==0.9.1
 Flask-Migrate==4.0.7
 Flask-Moment==1.0.5
 Flask-PageDown==0.4.0
-Flask-SQLAlchemy==3.1.1
+Flask-SQLAlchemy==2.4.4
 Flask-WTF==1.2.2
 html5lib==1.1
 itsdangerous==2.2.0
